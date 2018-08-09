@@ -1,0 +1,25 @@
+#!/bin/bash
+
+DISTROS=( "Linux" "Darwin" )
+VERSION="v${1}"
+
+if [ -z ${1+x} ]; then echo "version number is required, e.g. ./build 0.0.1-beta"; exit 1; fi
+
+sed -e 's|VERSION_NUMBER|'${1}'|g' -i cmd/version.go
+
+for d in ${DISTROS[@]}
+do
+    DISTRO=$(echo "$d" | tr '[:upper:]' '[:lower:]')
+    docker run --rm \
+        --user `id -u`:`id -g` \
+        -v ${PWD}:/go/src/kube2consul \
+        -w /go/src/kube2consul \
+        -e GOOS=${DISTRO} \
+        -e GOARCH=amd64 \
+        -e CGO_ENABLED=0 \
+        -e VERSION=${VERSION} \
+        -e DISTRO=${d} \
+        golang:1.9 sh -c 'mkdir -p releases/${VERSION} bin/${DISTRO}/x86_64 && go build -v -o releases/${VERSION}/kube2consul-${DISTRO}-x86_64 && cp releases/${VERSION}/kube2consul-${DISTRO}-x86_64 bin/${DISTRO}/x86_64/kube2consul'
+done
+
+sed -e 's|'${1}'|VERSION_NUMBER|g' -i cmd/version.go
